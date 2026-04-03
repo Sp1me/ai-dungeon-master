@@ -1,3 +1,4 @@
+HEAD
 # Solo Dungeon Master Starter
 
 This is a beginner-friendly Next.js starter for a solo fantasy RPG where an AI can act as the Dungeon Master.
