@@ -1,5 +1,6 @@
-HEAD
 # Solo Dungeon Master Starter
+
+(Vibe coded using ChatGPT Codex)
 
 This is a beginner-friendly Next.js starter for a solo fantasy RPG where an AI can act as the Dungeon Master.
 
