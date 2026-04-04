@@ -84,6 +84,16 @@ function pushSummary(state: GameState, line: string) {
   state.world.summary = [line, ...state.world.summary].slice(0, 6);
 }
 
+function updateNpc(
+  state: GameState,
+  npcId: string,
+  updater: (npc: GameState["world"]["npcs"][number]) => GameState["world"]["npcs"][number],
+) {
+  state.world.npcs = state.world.npcs.map((npc) =>
+    npc.id === npcId ? updater(npc) : npc,
+  );
+}
+
 function updateQuestSummary(state: GameState) {
   state.quests = state.quests.map((quest) => {
     if (quest.id !== "missing-courier") {
@@ -129,6 +139,10 @@ export function resolveTurn(action: string, currentState: GameState): ResolvedTu
       nextState.player.hp > 0
         ? `Failure costs ${damage} HP.`
         : "Failure drops your HP to 0. The adventure ends here.";
+    nextState.world.currentObjective =
+      nextState.player.hp > 0
+        ? "Recover, reassess the scene, and keep pushing toward the satchel."
+        : "Your current run has ended. Start over or load an earlier save.";
     pushSummary(nextState, `You failed at "${action.trim()}" and lost ${damage} HP.`);
   } else if (
     actionType === "attack" &&
@@ -140,6 +154,7 @@ export function resolveTurn(action: string, currentState: GameState): ResolvedTu
     nextState.world.location = "Mosslight Road";
     nextState.world.scene =
       "The goblin ambusher lies defeated near the wagon, and the stolen satchel is finally within reach.";
+    nextState.world.currentObjective = "Return the recovered satchel to Briar Glen.";
     nextState.inventory.push({
       id: "courier-satchel",
       name: "Courier's Satchel",
@@ -147,6 +162,12 @@ export function resolveTurn(action: string, currentState: GameState): ResolvedTu
       equipped: false,
       bonuses: {},
     });
+    updateNpc(nextState, "skrit", (npc) => ({
+      ...npc,
+      status: "defeated",
+      disposition: "hostile",
+      notes: "Defeated near the wagon after the ambush.",
+    }));
     consequence = "You defeat the goblin and recover the courier's satchel.";
     pushSummary(nextState, "The goblin ambusher was defeated and the satchel recovered.");
   } else if (actionType === "search" && !nextState.world.flags.foundSatchel) {
@@ -160,6 +181,11 @@ export function resolveTurn(action: string, currentState: GameState): ResolvedTu
     });
     nextState.world.scene =
       "Tracks lead away from the wagon, but the satchel itself was hidden under brambles close by.";
+    nextState.world.currentObjective = "Bring the satchel back to Briar Glen before someone else finds it.";
+    updateNpc(nextState, "tobin-reed", (npc) => ({
+      ...npc,
+      notes: "Still missing, but the satchel has been recovered from the crash site.",
+    }));
     consequence = "You uncover the missing satchel hidden near the crash.";
     pushSummary(nextState, "You searched the wreckage and found the courier's satchel.");
   } else if (
@@ -172,6 +198,17 @@ export function resolveTurn(action: string, currentState: GameState): ResolvedTu
     nextState.world.location = "Briar Glen";
     nextState.world.scene =
       "Warm lantern light spills from the inn as relieved townsfolk gather to see the satchel returned.";
+    nextState.world.currentObjective = "Rest in town, ask questions, and prepare for the next lead.";
+    updateNpc(nextState, "mara-fen", (npc) => ({
+      ...npc,
+      notes: "Grateful that the satchel made it back to town.",
+    }));
+    updateNpc(nextState, "tobin-reed", (npc) => ({
+      ...npc,
+      status: "safe",
+      location: "Briar Glen",
+      notes: "Reported back to town after escaping the ambush.",
+    }));
     consequence = "You return the satchel and complete the first quest.";
     pushSummary(nextState, "You returned to Briar Glen and completed the courier quest.");
   } else if (actionType === "travel" && !nextState.world.flags.bridgeCrossed) {
@@ -179,11 +216,18 @@ export function resolveTurn(action: string, currentState: GameState): ResolvedTu
     nextState.world.location = "Old Stone Bridge";
     nextState.world.scene =
       "Ahead, an old bridge spans a black stream. Mist curls under the stones, and fresh footprints mark the way.";
+    nextState.world.currentObjective = "Search the bridge area for clues about the ambush.";
     consequence = "You press deeper into the woods and reach the old bridge.";
     pushSummary(nextState, "You advanced from the wagon toward the old stone bridge.");
   } else if (actionType === "talk" && nextState.world.flags.goblinAlive) {
     nextState.world.scene =
       "The goblin hesitates in the underbrush, yellow eyes narrowed, listening for the first time.";
+    nextState.world.currentObjective = "Decide whether to press the advantage, bargain, or recover the satchel.";
+    updateNpc(nextState, "skrit", (npc) => ({
+      ...npc,
+      disposition: "afraid",
+      notes: "Shaken by your confidence and now willing to speak from cover.",
+    }));
     consequence = "Your words buy a brief pause and reveal the goblin's position.";
     pushSummary(nextState, "You managed to draw the hidden goblin into conversation.");
   } else {
@@ -209,4 +253,3 @@ export function resolveTurn(action: string, currentState: GameState): ResolvedTu
     rollSummary,
   };
 }
-

@@ -20,8 +20,12 @@ Success: ${turn.success}
 Used stat: ${turn.statUsed}
 Current location: ${turn.nextState.world.location}
 Turn number: ${turn.nextState.world.turn}
+Current objective: ${turn.nextState.world.currentObjective}
 Player HP: ${turn.nextState.player.hp}/${turn.nextState.player.maxHp}
 Quest status: ${turn.nextState.quests.map((quest) => `${quest.title}: ${quest.status}`).join("; ")}
+NPCs: ${turn.nextState.world.npcs
+  .map((npc) => `${npc.name} (${npc.role}) at ${npc.location}, ${npc.disposition}, ${npc.status}. Goal: ${npc.goal}. Notes: ${npc.notes}`)
+  .join(" | ")}
 World notes: ${turn.nextState.world.summary.join(" | ")}`;
 }
 
@@ -47,7 +51,7 @@ export async function POST(request: Request) {
             {
               role: "developer",
               content:
-                "You are a warm, cinematic fantasy dungeon master for a beginner-friendly web game. Respect the supplied dice result and updated game state. Write vivid but concise text. Return strict JSON with keys narration and outcome. Never invent a different roll result.",
+                "You are a warm, cinematic fantasy dungeon master for a beginner-friendly web game. Respect the supplied dice result and updated game state. Use NPC personalities and the current objective in your narration. Write vivid but concise text. Return strict JSON with keys narration and outcome. Never invent a different roll result.",
             },
             {
               role: "user",

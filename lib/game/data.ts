@@ -3,6 +3,7 @@ import type {
   GameMessage,
   GameState,
   InventoryItem,
+  NpcState,
   PlayerState,
   Quest,
 } from "@/lib/game/types";
@@ -104,10 +105,51 @@ function createStarterQuests(): Quest[] {
   return [
     {
       id: "missing-courier",
-      title: "Find the Missing Courier",
+      title: "Recover the Courier's Satchel",
       summary:
-        "A courier vanished near Mosslight Road. Search the broken wagon, track the thief, and return what was taken.",
+        "A courier was ambushed near Mosslight Road. Recover the stolen satchel and bring it safely back to Briar Glen.",
       status: "active",
+    },
+  ];
+}
+
+function createStarterNpcs(): NpcState[] {
+  return [
+    {
+      id: "skrit",
+      name: "Skrit",
+      role: "Goblin scavenger",
+      location: "Mosslight Road",
+      disposition: "hostile",
+      traits: ["nervous", "greedy", "quick-footed"],
+      goal: "Keep the satchel long enough to trade it for food and safety.",
+      secret: "He is frightened and easier to scare or bargain with than he first appears.",
+      status: "active",
+      notes: "Hiding in the brush near the wrecked wagon.",
+    },
+    {
+      id: "mara-fen",
+      name: "Mara Fen",
+      role: "Innkeeper of Briar Glen",
+      location: "Briar Glen",
+      disposition: "friendly",
+      traits: ["steady", "practical", "protective"],
+      goal: "Keep travelers safe and the road open.",
+      secret: "She has quietly been paying couriers extra because the woods have grown more dangerous.",
+      status: "safe",
+      notes: "A trusted face waiting back in town.",
+    },
+    {
+      id: "tobin-reed",
+      name: "Tobin Reed",
+      role: "Courier",
+      location: "Somewhere beyond the road",
+      disposition: "neutral",
+      traits: ["tired", "dutiful", "secretive"],
+      goal: "Make sure the satchel reaches Briar Glen intact.",
+      secret: "The satchel contains a map fragment stitched into the lining.",
+      status: "missing",
+      notes: "Missing after the ambush. Recovering the satchel is the first priority.",
     },
   ];
 }
@@ -124,7 +166,7 @@ function createStarterMessages(name: string): GameMessage[] {
     {
       id: crypto.randomUUID(),
       role: "system",
-      text: "Quest started: Find the Missing Courier.",
+      text: "Quest started: Recover the Courier's Satchel.",
     },
   ];
 }
@@ -138,6 +180,7 @@ export function createNewGame(name: string, className: CharacterClass): GameStat
       scene:
         "A broken wagon, wet forest air, and fresh signs of a struggle. Somewhere nearby, a goblin thief may still be hiding with the courier's satchel.",
       turn: 1,
+      currentObjective: "Inspect the wagon, deal with the goblin ambusher, and recover the satchel.",
       flags: {
         goblinAlive: true,
         foundSatchel: false,
@@ -148,9 +191,9 @@ export function createNewGame(name: string, className: CharacterClass): GameStat
         "You reached the wrecked wagon on Mosslight Road.",
         "The missing courier's satchel has not been recovered yet.",
       ],
+      npcs: createStarterNpcs(),
     },
     quests: createStarterQuests(),
     messages: createStarterMessages(name),
   };
 }
-

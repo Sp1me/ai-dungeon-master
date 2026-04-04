@@ -3,9 +3,8 @@
 import Link from "next/link";
 import { startTransition, useEffect, useMemo, useState, type FormEvent } from "react";
 import { createNewGame } from "@/lib/game/data";
-import type { CharacterClass, GameState } from "@/lib/game/types";
-
-const SAVE_KEY = "solo-dm-save";
+import { clearGameSave, loadGame, saveGame } from "@/lib/game/save";
+import type { CharacterClass, GameState, SaveGameData } from "@/lib/game/types";
 
 const classDescriptions: Record<CharacterClass, string> = {
   Warrior: "Tough, direct, and best when steel meets trouble.",
@@ -161,7 +160,7 @@ function ChatPanel({
 
 export function GameClient() {
   const [gameState, setGameState] = useState<GameState | null>(null);
-  const [savedGame, setSavedGame] = useState<GameState | null>(null);
+  const [savedGame, setSavedGame] = useState<SaveGameData | null>(null);
   const [playerName, setPlayerName] = useState("Aria");
   const [selectedClass, setSelectedClass] = useState<CharacterClass>("Warrior");
   const [action, setAction] = useState("");
@@ -169,16 +168,9 @@ export function GameClient() {
   const [status, setStatus] = useState("");
 
   useEffect(() => {
-    const rawSave = window.localStorage.getItem(SAVE_KEY);
-    if (!rawSave) {
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(rawSave) as GameState;
+    const parsed = loadGame();
+    if (parsed) {
       setSavedGame(parsed);
-    } catch (error) {
-      console.error("Failed to read save data.", error);
     }
   }, []);
 
@@ -187,8 +179,10 @@ export function GameClient() {
       return;
     }
 
-    window.localStorage.setItem(SAVE_KEY, JSON.stringify(gameState));
-    setSavedGame(gameState);
+    const payload = saveGame(gameState);
+    if (payload) {
+      setSavedGame(payload);
+    }
   }, [gameState]);
 
   const canResume = useMemo(() => Boolean(savedGame && !gameState), [savedGame, gameState]);
@@ -208,13 +202,13 @@ export function GameClient() {
     }
 
     startTransition(() => {
-      setGameState(savedGame);
+      setGameState(savedGame.state);
       setStatus("Save loaded.");
     });
   }
 
   function clearSave() {
-    window.localStorage.removeItem(SAVE_KEY);
+    clearGameSave();
     setSavedGame(null);
     setGameState(null);
     setStatus("Save cleared.");
@@ -328,6 +322,9 @@ export function GameClient() {
                     Clear save
                   </button>
                 ) : null}
+                <Link className="button-primary" href="/character">
+                  View character sheet
+                </Link>
               </div>
             </div>
           </div>
@@ -344,6 +341,11 @@ export function GameClient() {
                 OpenAI to narrate the turn. Without a key, the project still works
                 with a built-in storyteller.
               </p>
+              {savedGame ? (
+                <p className="m-0">
+                  Latest save: {new Date(savedGame.savedAt).toLocaleString()}
+                </p>
+              ) : null}
               <p className="m-0">
                 Need the setup steps? Start with the{" "}
                 <Link className="underline" href="/">
@@ -363,6 +365,12 @@ export function GameClient() {
       <aside className="sidebar">
         <CharacterPanel state={gameState} />
         <div className="panel-card p-5">
+          <p className="section-title">Current Objective</p>
+          <p className="m-0 text-sm leading-6 text-[rgba(245,237,220,0.82)]">
+            {gameState.world.currentObjective}
+          </p>
+        </div>
+        <div className="panel-card p-5">
           <p className="section-title">World Memory</p>
           <div className="space-y-3 text-sm leading-6 text-[rgba(245,237,220,0.78)]">
             {gameState.world.summary.map((entry) => (
@@ -371,10 +379,37 @@ export function GameClient() {
               </p>
             ))}
           </div>
+        </div>
+        <div className="panel-card p-5">
+          <p className="section-title">Notable NPCs</p>
+          <div className="space-y-3">
+            {gameState.world.npcs.map((npc) => (
+              <div
+                key={npc.id}
+                className="rounded-2xl border border-[rgba(255,245,227,0.12)] bg-[rgba(255,245,227,0.06)] p-3"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <strong>{npc.name}</strong>
+                  <span className="text-xs uppercase tracking-[0.18em] text-[rgba(245,237,220,0.6)]">
+                    {npc.disposition}
+                  </span>
+                </div>
+                <p className="mb-0 mt-1 text-sm text-[rgba(245,237,220,0.82)]">
+                  {npc.role}
+                </p>
+                <p className="mb-0 mt-2 text-sm leading-6 text-[rgba(245,237,220,0.7)]">
+                  {npc.notes}
+                </p>
+              </div>
+            ))}
+          </div>
           <div className="mt-5 flex flex-wrap gap-3">
             <button className="button-secondary" type="button" onClick={clearSave}>
               Start over
             </button>
+            <Link className="button-secondary" href="/character">
+              Character sheet
+            </Link>
             <Link className="button-secondary" href="/">
               Back home
             </Link>

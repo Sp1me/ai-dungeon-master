@@ -12,7 +12,11 @@ This is a beginner-friendly Next.js starter for a solo fantasy RPG where an AI c
 - Transparent d20 rolls
 - Fail states that can cost HP
 - Inventory, quests, and world memory
+- A dedicated character sheet page
+- NPC personalities with goals, traits, and status
 - Save and resume with browser local storage
+- Optional Firebase cloud saves with anonymous sign-in
+- A fixed-height game layout with tabbed sidebar sections
 - Optional OpenAI narration with a fallback local narrator
 
 ## What you need to install first
@@ -44,13 +48,31 @@ npm install
 - Copy `.env.example` to `.env.local`
 - Put your key on the `OPENAI_API_KEY=` line
 
-4. Start the app:
+4. Optional: add Firebase cloud save values.
+
+- In the Firebase console, create a web app and copy its `firebaseConfig`
+- Turn on **Anonymous** authentication
+- Create a Cloud Firestore database
+- Fill in the `NEXT_PUBLIC_FIREBASE_*` values in `.env.local`
+- A simple starter rule is:
+
+```txt
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /gameSaves/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}
+```
+
+5. Start the app:
 
 ```bash
 npm run dev
 ```
 
-5. Open [http://localhost:3000](http://localhost:3000)
+6. Open [http://localhost:3000](http://localhost:3000)
 
 ## How the code is organized
 
@@ -58,8 +80,10 @@ npm run dev
   Next.js pages and API routes
 - `components/game/`
   The game screen UI
+- `lib/firebase/`
+  Firebase setup for anonymous auth and Firestore
 - `lib/game/`
-  Game data, rules, and fallback narration
+  Game data, rules, local saves, and cloud-save helpers
 
 ## How the turn system works
 
@@ -69,10 +93,15 @@ npm run dev
 4. OpenAI narrates the result if a key exists.
 5. If no key exists, a local fallback narrator writes the scene.
 6. The updated game is saved in the browser.
+7. If Firebase is configured, the same save is synced to Firestore.
+
+## Git safety
+
+- `.env`, `.env.local`, and other dotenv files are ignored by `.gitignore`
+- `.env.example` stays safe to commit because it contains placeholders only
 
 ## Good next steps after this MVP
 
-- Move saves from local storage to Firebase Auth + Firestore
 - Add image generation for locations and major NPCs
 - Add more quests and branching world flags
 - Add NPC personality data

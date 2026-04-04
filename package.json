@@ -9,6 +9,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "firebase": "latest",
     "next": "latest",
     "openai": "latest",
     "react": "latest",

@@ -30,12 +30,31 @@ export type GameMessage = {
   text: string;
 };
 
+export type NpcDisposition = "friendly" | "neutral" | "hostile" | "afraid";
+
+export type NpcStatus = "active" | "safe" | "missing" | "defeated";
+
+export type NpcState = {
+  id: string;
+  name: string;
+  role: string;
+  location: string;
+  disposition: NpcDisposition;
+  traits: string[];
+  goal: string;
+  secret: string;
+  status: NpcStatus;
+  notes: string;
+};
+
 export type WorldState = {
   location: string;
   scene: string;
   turn: number;
+  currentObjective: string;
   flags: Record<string, boolean>;
   summary: string[];
+  npcs: NpcState[];
 };
 
 export type PlayerState = {
@@ -54,6 +73,12 @@ export type GameState = {
   messages: GameMessage[];
 };
 
+export type SaveGameData = {
+  version: number;
+  savedAt: string;
+  state: GameState;
+};
+
 export type ResolvedTurn = {
   nextState: GameState;
   roll: number;
@@ -66,4 +91,3 @@ export type ResolvedTurn = {
   consequence: string;
   rollSummary: string;
 };
-
