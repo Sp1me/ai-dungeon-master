@@ -18,6 +18,7 @@ This is a beginner-friendly Next.js starter for a solo fantasy RPG where an AI c
 - Optional Firebase cloud saves with anonymous sign-in
 - A fixed-height game layout with tabbed sidebar sections
 - Gemini narration with explicit error reporting when the API is unavailable
+- Imagen-powered map, location, and NPC portrait generation
 
 ## What you need to install first
 
@@ -43,10 +44,11 @@ npm -v
 npm install
 ```
 
-3. Optional: add a Gemini API key.
+3. Optional: add a Gemini API key for narration and Imagen art.
 
 - Copy `.env.example` to `.env.local`
 - Put your key on the `GEMINI_API_KEY=` line
+- Leave `IMAGE_MODEL=imagen-4.0-fast-generate-001` if you want the cheapest Imagen 4 option
 - You can create a key in Google AI Studio
 
 4. Optional: add Firebase cloud save values.
@@ -92,9 +94,10 @@ npm run dev
 2. The API route rolls a d20 and applies simple rules.
 3. The app updates HP, quests, inventory, and world state.
 4. Gemini narrates the result when the API key is available.
-5. If the API call fails, the app shows the real error instead of generating fake story text.
-6. The updated game is saved in the browser.
-7. If Firebase is configured, the same save is synced to Firestore.
+5. Imagen generates location art, maps, and NPC portraits when the API key is available.
+6. If the API call fails, the app shows the real error instead of generating fake story text.
+7. The updated game is saved in the browser.
+8. If Firebase is configured, the same save is synced to Firestore.
 
 ## Git safety
 

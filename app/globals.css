@@ -353,7 +353,6 @@ textarea {
   .scene-shell {
     grid-template-columns: 1fr;
   }
-
   .scene-sidebar {
     position: static;
   }

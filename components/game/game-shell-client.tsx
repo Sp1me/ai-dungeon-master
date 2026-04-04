@@ -570,105 +570,83 @@ export function GameShellClient() {
   if (!gameState) {
     return (
       <section className="hero-card">
-        <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="space-y-5">
-            <div>
-              <p className="text-sm uppercase tracking-[0.25em] text-[var(--accent-strong)]">
-                Step 1
-              </p>
-              <h1 className="mt-2 text-4xl font-semibold leading-tight text-[var(--accent-strong)]">
-                Create your first adventurer.
-              </h1>
-              <p className="mt-4 max-w-2xl text-lg leading-8 text-[rgba(31,26,20,0.84)]">
-                This MVP starts with one quest, simple d20 checks, and a chat
-                loop. The AI narrates, but the app code controls the rules.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="mb-2 block text-sm font-semibold uppercase tracking-[0.2em] text-[var(--accent-strong)]">
-                  Character Name
-                </label>
-                <input
-                  className="field !border-[rgba(125,46,20,0.18)] !bg-[rgba(255,255,255,0.58)] !text-[var(--text)]"
-                  value={playerName}
-                  onChange={(event) => setPlayerName(event.target.value)}
-                />
-              </div>
-
-              <div>
-                <p className="mb-2 block text-sm font-semibold uppercase tracking-[0.2em] text-[var(--accent-strong)]">
-                  Choose a Class
-                </p>
-                <div className="grid gap-3 md:grid-cols-3">
-                  {(Object.keys(classDescriptions) as CharacterClass[]).map((className) => (
-                    <button
-                      key={className}
-                      className={`class-card text-left ${selectedClass === className ? "selected" : ""}`}
-                      type="button"
-                      onClick={() => setSelectedClass(className)}
-                    >
-                      <h2 className="m-0 text-xl font-semibold text-[var(--accent-strong)]">
-                        {className}
-                      </h2>
-                      <p className="mt-2 text-sm leading-6 text-[rgba(31,26,20,0.76)]">
-                        {classDescriptions[className]}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-3">
-                <button className="button-primary" type="button" onClick={startNewGame}>
-                  Start new game
-                </button>
-                {canResume ? (
-                  <button className="button-primary" type="button" onClick={resumeGame}>
-                    Resume saved game
-                  </button>
-                ) : null}
-                {savedGame ? (
-                  <button className="button-danger" type="button" onClick={() => void clearSave()}>
-                    Clear save
-                  </button>
-                ) : null}
-                <Link className="button-primary" href="/character">
-                  View character sheet
-                </Link>
-                <Link className="button-secondary" href="/scene">
-                  Open scene atlas
-                </Link>
-              </div>
-            </div>
+        <div className="space-y-5">
+          <div>
+            <p className="text-sm uppercase tracking-[0.25em] text-[var(--accent-strong)]">
+              Character Creation
+            </p>
+            <h1 className="mt-2 text-4xl font-semibold leading-tight text-[var(--accent-strong)]">
+              Choose who steps onto the road.
+            </h1>
+            <p className="mt-4 max-w-2xl text-lg leading-8 text-[rgba(31,26,20,0.84)]">
+              Pick a name, choose a class, and begin the next scene with your save state,
+              atlas, and story tools ready to follow.
+            </p>
           </div>
 
-          <div className="rounded-[24px] border border-[rgba(125,46,20,0.14)] bg-[rgba(255,250,242,0.78)] p-6 shadow-[0_18px_40px_rgba(88,58,29,0.08)]">
-            <p className="section-title !text-[var(--accent-strong)]">How This Starter Works</p>
-            <div className="space-y-4 text-sm leading-7 text-[rgba(31,26,20,0.82)]">
-              <p className="m-0">
-                Local browser saves are always on. Firebase cloud saves turn on when the required
-                env values are added.
+          <div className="space-y-4">
+            <div>
+              <label className="mb-2 block text-sm font-semibold uppercase tracking-[0.2em] text-[var(--accent-strong)]">
+                Character Name
+              </label>
+              <input
+                className="field !border-[rgba(125,46,20,0.18)] !bg-[rgba(255,255,255,0.72)] !text-[var(--text)]"
+                value={playerName}
+                onChange={(event) => setPlayerName(event.target.value)}
+              />
+            </div>
+
+            <div>
+              <p className="mb-2 block text-sm font-semibold uppercase tracking-[0.2em] text-[var(--accent-strong)]">
+                Choose a Class
               </p>
-              <p className="m-0">
-                Add a <code>GEMINI_API_KEY</code> to let Gemini narrate the turn. If the
-                request fails, the app now shows the real error instead of inventing a fake
-                response.
+              <div className="grid gap-3 md:grid-cols-3">
+                {(Object.keys(classDescriptions) as CharacterClass[]).map((className) => (
+                  <button
+                    key={className}
+                    className={`class-card text-left ${selectedClass === className ? "selected" : ""}`}
+                    type="button"
+                    onClick={() => setSelectedClass(className)}
+                  >
+                    <h2 className="m-0 text-xl font-semibold text-[var(--accent-strong)]">
+                      {className}
+                    </h2>
+                    <p className="mt-2 text-sm leading-6 text-[rgba(31,26,20,0.76)]">
+                      {classDescriptions[className]}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {savedGame ? (
+              <p className="m-0 text-sm leading-6 text-[rgba(31,26,20,0.72)]">
+                Save ready from {new Date(savedGame.savedAt).toLocaleString()}.
               </p>
-              <p className="m-0">{cloudMessage}</p>
-              {savedGame ? (
-                <p className="m-0">
-                  Latest save: {new Date(savedGame.savedAt).toLocaleString()}
-                </p>
+            ) : (
+              <p className="m-0 text-sm leading-6 text-[rgba(31,26,20,0.72)]">{cloudMessage}</p>
+            )}
+
+            <div className="flex flex-wrap gap-3">
+              <button className="button-primary" type="button" onClick={startNewGame}>
+                Start new game
+              </button>
+              {canResume ? (
+                <button className="button-primary" type="button" onClick={resumeGame}>
+                  Resume saved game
+                </button>
               ) : null}
-              <p className="m-0">
-                Need the setup steps? Start with the{" "}
-                <Link className="underline" href="/">
-                  project overview
-                </Link>{" "}
-                or read the README in this folder.
-              </p>
+              {savedGame ? (
+                <button className="button-primary" type="button" onClick={() => void clearSave()}>
+                  Clear save
+                </button>
+              ) : null}
+              <Link className="button-primary" href="/character">
+                View character sheet
+              </Link>
+              <Link className="button-primary" href="/">
+                Back home
+              </Link>
             </div>
           </div>
         </div>

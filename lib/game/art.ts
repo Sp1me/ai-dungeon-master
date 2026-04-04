@@ -3,6 +3,7 @@ import type { GameState, NpcState } from "@/lib/game/types";
 
 export const ART_CACHE_KEY = "solo-dm-art-cache";
 const MAX_ART_ASSETS = 12;
+const MAX_ART_CACHE_BYTES = 4_000_000;
 
 export type ArtAssetKind = "map" | "location" | "npc";
 
@@ -36,13 +37,47 @@ function parseCache(raw: string | null): ArtCache {
   }
 }
 
+function sortAssets(cache: ArtCache) {
+  return Object.values(cache).sort(
+    (left, right) =>
+      new Date(right.generatedAt).getTime() - new Date(left.generatedAt).getTime(),
+  );
+}
+
+function buildCache(entries: CachedArtAsset[]) {
+  return entries.reduce<ArtCache>((accumulator, current) => {
+    accumulator[current.key] = current;
+    return accumulator;
+  }, {});
+}
+
+function getSerializedSize(value: string) {
+  if (typeof TextEncoder !== "undefined") {
+    return new TextEncoder().encode(value).length;
+  }
+
+  return value.length * 2;
+}
+
+function isQuotaExceededError(error: unknown) {
+  return (
+    error instanceof DOMException &&
+    (error.name === "QuotaExceededError" || error.name === "NS_ERROR_DOM_QUOTA_REACHED")
+  );
+}
+
 export function loadArtCache() {
   const browser = safeWindow();
   if (!browser) {
     return {};
   }
 
-  return parseCache(browser.localStorage.getItem(ART_CACHE_KEY));
+  try {
+    return parseCache(browser.localStorage.getItem(ART_CACHE_KEY));
+  } catch (error) {
+    console.error("Failed to load art cache.", error);
+    return {};
+  }
 }
 
 export function saveArtAsset(asset: CachedArtAsset) {
@@ -54,18 +89,28 @@ export function saveArtAsset(asset: CachedArtAsset) {
   const nextCache = loadArtCache();
   nextCache[asset.key] = asset;
 
-  const trimmed = Object.values(nextCache)
-    .sort(
-      (left, right) =>
-        new Date(right.generatedAt).getTime() - new Date(left.generatedAt).getTime(),
-    )
-    .slice(0, MAX_ART_ASSETS)
-    .reduce<ArtCache>((accumulator, current) => {
-      accumulator[current.key] = current;
-      return accumulator;
-    }, {});
+  const candidates = sortAssets(nextCache).slice(0, MAX_ART_ASSETS);
 
-  browser.localStorage.setItem(ART_CACHE_KEY, JSON.stringify(trimmed));
+  for (let count = candidates.length; count > 0; count -= 1) {
+    const trimmed = buildCache(candidates.slice(0, count));
+    const serialized = JSON.stringify(trimmed);
+
+    if (getSerializedSize(serialized) > MAX_ART_CACHE_BYTES) {
+      continue;
+    }
+
+    try {
+      browser.localStorage.setItem(ART_CACHE_KEY, serialized);
+      return asset;
+    } catch (error) {
+      if (!isQuotaExceededError(error)) {
+        console.error("Failed to save art cache.", error);
+        break;
+      }
+    }
+  }
+
+  console.warn("Art cache skipped because the generated image payload exceeded browser storage limits.");
   return asset;
 }
 
@@ -79,7 +124,11 @@ export function clearArtCache() {
     return;
   }
 
-  browser.localStorage.removeItem(ART_CACHE_KEY);
+  try {
+    browser.localStorage.removeItem(ART_CACHE_KEY);
+  } catch (error) {
+    console.error("Failed to clear art cache.", error);
+  }
 }
 
 function slugify(value: string) {

@@ -7,37 +7,22 @@ type ArtRequestBody = {
   npcId?: string;
 };
 
-type GeminiImageResponse = {
-  candidates?: {
-    content?: {
-      parts?: Array<{
-        text?: string;
-        inlineData?: {
-          mimeType?: string;
-          data?: string;
-        };
-        inline_data?: {
-          mime_type?: string;
-          data?: string;
-        };
-      }>;
-    };
-    finishReason?: string;
-  }[];
-  promptFeedback?: {
-    blockReason?: string;
-  };
+type ImagenPrediction = {
+  bytesBase64Encoded?: string;
+  mimeType?: string;
+  raiFilteredReason?: string;
+};
+
+type ImagenPredictResponse = {
+  predictions?: ImagenPrediction[];
   error?: {
     message?: string;
   };
 };
 
-const geminiApiKey =
+const imageApiKey =
   process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? null;
-const imageModels = [
-  "gemini-2.0-flash-preview-image-generation",
-  "gemini-2.5-flash-image",
-] as const;
+const imageModel = process.env.IMAGE_MODEL ?? "imagen-4.0-fast-generate-001";
 
 function buildArtDirection() {
   return [
@@ -107,24 +92,20 @@ function buildPrompt(body: ArtRequestBody) {
   return buildNpcPrompt(body.state, npc);
 }
 
-function getInlineImageData(payload: GeminiImageResponse) {
-  const parts = payload.candidates?.[0]?.content?.parts ?? [];
+function buildImagenParameters(kind: ArtRequestBody["kind"]) {
+  return {
+    sampleCount: 1,
+    aspectRatio: kind === "npc" ? "3:4" : "16:9",
+    ...(kind === "npc" ? { personGeneration: "allow_adult" } : {}),
+  };
+}
 
-  for (const part of parts) {
-    const modern = part.inlineData;
-    const legacy = part.inline_data;
-
-    if (modern?.data && modern.mimeType) {
+function getGeneratedImage(payload: ImagenPredictResponse) {
+  for (const prediction of payload.predictions ?? []) {
+    if (prediction.bytesBase64Encoded) {
       return {
-        data: modern.data,
-        mimeType: modern.mimeType,
-      };
-    }
-
-    if (legacy?.data && legacy.mime_type) {
-      return {
-        data: legacy.data,
-        mimeType: legacy.mime_type,
+        data: prediction.bytesBase64Encoded,
+        mimeType: prediction.mimeType ?? "image/png",
       };
     }
   }
@@ -143,84 +124,71 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!geminiApiKey) {
+    if (!imageApiKey) {
       return NextResponse.json(
         {
           error:
-            "Gemini image generation is not configured. Add GEMINI_API_KEY to .env.local and restart the dev server.",
+            "Imagen image generation is not configured. Add GEMINI_API_KEY to .env.local and restart the dev server.",
         },
         { status: 503 },
       );
     }
 
     const prompt = buildPrompt(body);
-    let lastError = "Gemini image generation failed.";
-
-    for (const imageModel of imageModels) {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${imageModel}:generateContent`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-goog-api-key": geminiApiKey,
-          },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [{ text: prompt }],
-              },
-            ],
-          }),
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${imageModel}:predict`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": imageApiKey,
         },
-      );
-
-      const payload = (await response.json().catch(() => null)) as GeminiImageResponse | null;
-
-      if (!response.ok) {
-        const message =
-          payload?.error?.message ??
-          `Gemini image generation failed with status ${response.status}.`;
-
-        lastError = `${imageModel}: ${message}`;
-
-        if (response.status === 401 || response.status === 403) {
-          return NextResponse.json(
+        body: JSON.stringify({
+          instances: [
             {
-              error: `Gemini image generation failed: ${lastError}`,
+              prompt,
             },
-            { status: response.status },
-          );
-        }
+          ],
+          parameters: buildImagenParameters(body.kind),
+        }),
+      },
+    );
 
-        continue;
-      }
+    const payload = (await response.json().catch(() => null)) as ImagenPredictResponse | null;
 
-      const image = payload ? getInlineImageData(payload) : null;
-      if (!image) {
-        const finishReason = payload?.candidates?.[0]?.finishReason;
-        const blockReason = payload?.promptFeedback?.blockReason;
+    if (!response.ok) {
+      const message =
+        payload?.error?.message ?? `Imagen image generation failed with status ${response.status}.`;
 
-        lastError = blockReason
-          ? `${imageModel}: Gemini blocked the image prompt: ${blockReason}.`
-          : finishReason
-            ? `${imageModel}: Gemini did not return an image. Finish reason: ${finishReason}.`
-            : `${imageModel}: Gemini returned no image data.`;
+      return NextResponse.json(
+        {
+          error: `Imagen image generation failed: ${imageModel}: ${message}`,
+        },
+        { status: response.status },
+      );
+    }
 
-        continue;
-      }
+    const image = payload ? getGeneratedImage(payload) : null;
+    if (!image) {
+      const blockReason = payload?.predictions?.find((prediction) => prediction.raiFilteredReason)
+        ?.raiFilteredReason;
 
-      return NextResponse.json({
-        imageDataUrl: `data:${image.mimeType};base64,${image.data}`,
-        mimeType: image.mimeType,
-        model: imageModel,
-        prompt,
-      });
+      return NextResponse.json(
+        {
+          error: blockReason
+            ? `Imagen blocked the image prompt: ${blockReason}`
+            : `Imagen did not return image data for ${imageModel}.`,
+        },
+        { status: 502 },
+      );
     }
 
     return NextResponse.json({
-      error: `Gemini image generation failed after trying ${imageModels.join(", ")}. Last error: ${lastError}`,
-    }, { status: 429 });
+      imageDataUrl: `data:${image.mimeType};base64,${image.data}`,
+      mimeType: image.mimeType,
+      model: imageModel,
+      prompt,
+    });
   } catch (error) {
     console.error(error);
     return NextResponse.json(

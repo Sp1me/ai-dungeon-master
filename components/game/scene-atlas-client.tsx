@@ -12,7 +12,6 @@ import { requestGeneratedArt } from "@/lib/game/art-client";
 import type { GameState } from "@/lib/game/types";
 
 const atlasSections = [
-  { id: "overview", label: "Overview" },
   { id: "map", label: "2D Map" },
   { id: "location", label: "Location Art" },
   { id: "npcs", label: "NPC Portraits" },
@@ -50,10 +49,20 @@ function AtlasImageCard({
           <h2 className="m-0 text-2xl font-semibold">{subtitle}</h2>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button className="button-primary" type="button" disabled={loading} onClick={() => void onGenerate(false)}>
+          <button
+            className="button-primary"
+            type="button"
+            disabled={loading}
+            onClick={() => void onGenerate(false)}
+          >
             {loading ? "Generating..." : buttonLabel}
           </button>
-          <button className="button-secondary" type="button" disabled={loading} onClick={() => void onGenerate(true)}>
+          <button
+            className="button-secondary"
+            type="button"
+            disabled={loading}
+            onClick={() => void onGenerate(true)}
+          >
             Refresh art
           </button>
         </div>
@@ -90,12 +99,13 @@ function AtlasImageCard({
 }
 
 export function SceneAtlasClient() {
-  const [gameState] = useState<GameState | null>(() => loadLatestSceneState());
-  const [activeSection, setActiveSection] = useState<AtlasSection>("overview");
+  const [gameState, setGameState] = useState<GameState | null>(null);
+  const [hasLoadedState, setHasLoadedState] = useState(false);
+  const [activeSection, setActiveSection] = useState<AtlasSection>("map");
   const [locationAsset, setLocationAsset] = useState<CachedArtAsset | null>(null);
   const [mapAsset, setMapAsset] = useState<CachedArtAsset | null>(null);
   const [npcAssets, setNpcAssets] = useState<Record<string, CachedArtAsset>>({});
-  const [selectedNpcId, setSelectedNpcId] = useState<string>(() => loadLatestSceneState()?.world.npcs[0]?.id ?? "");
+  const [selectedNpcId, setSelectedNpcId] = useState("");
   const [mapStatus, setMapStatus] = useState<GenerationState>({ loading: false, message: "" });
   const [locationStatus, setLocationStatus] = useState<GenerationState>({
     loading: false,
@@ -107,6 +117,19 @@ export function SceneAtlasClient() {
     () => gameState?.world.npcs.find((npc) => npc.id === selectedNpcId) ?? null,
     [gameState, selectedNpcId],
   );
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const latestState = loadLatestSceneState();
+      setGameState(latestState);
+      setSelectedNpcId(latestState?.world.npcs[0]?.id ?? "");
+      setHasLoadedState(true);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
+  }, []);
 
   useEffect(() => {
     if (!gameState) {
@@ -220,7 +243,7 @@ export function SceneAtlasClient() {
           ? setLocationStatus
           : setNpcStatus;
 
-    statusSetter({ loading: true, message: "Generating art with Gemini..." });
+    statusSetter({ loading: true, message: "Generating art with Imagen..." });
 
     try {
       const result = await requestGeneratedArt({
@@ -257,6 +280,22 @@ export function SceneAtlasClient() {
     }
   }
 
+  if (!hasLoadedState) {
+    return (
+      <section className="hero-card">
+        <div className="space-y-4">
+          <p className="text-sm uppercase tracking-[0.25em] text-[var(--accent-strong)]">Scene Atlas</p>
+          <h1 className="m-0 text-4xl font-semibold leading-tight text-[var(--accent-strong)]">
+            Loading your latest scene.
+          </h1>
+          <p className="max-w-2xl text-lg leading-8 text-[rgba(31,26,20,0.82)]">
+            Pulling the most recent local save so the atlas can open directly on the 2D map.
+          </p>
+        </div>
+      </section>
+    );
+  }
+
   if (!gameState) {
     return (
       <section className="hero-card">
@@ -273,7 +312,7 @@ export function SceneAtlasClient() {
             <Link className="button-primary" href="/game">
               Back to game
             </Link>
-            <Link className="button-secondary !text-[var(--accent-strong)]" href="/">
+            <Link className="button-hero-secondary" href="/">
               Home
             </Link>
           </div>
@@ -354,38 +393,6 @@ export function SceneAtlasClient() {
       </aside>
 
       <main className="scene-content">
-        {activeSection === "overview" ? (
-          <section className="panel-card atlas-card p-5">
-            <p className="section-title">Overview</p>
-            <h2 className="m-0 text-3xl font-semibold">Visuals live here, not in the chat.</h2>
-            <p className="mt-4 max-w-3xl text-base leading-7 text-[rgba(245,237,220,0.82)]">
-              This keeps the game screen focused on story decisions while giving players an
-              optional place to open a top-down map, a mood illustration of the current location,
-              or portraits for important NPCs.
-            </p>
-            <div className="mt-6 grid gap-4 md:grid-cols-3">
-              <div className="rounded-2xl bg-[rgba(255,245,227,0.06)] p-4">
-                <p className="section-title">2D Map</p>
-                <p className="m-0 text-sm leading-6 text-[rgba(245,237,220,0.75)]">
-                  A top-down encounter-style visual for where you are right now.
-                </p>
-              </div>
-              <div className="rounded-2xl bg-[rgba(255,245,227,0.06)] p-4">
-                <p className="section-title">Location Art</p>
-                <p className="m-0 text-sm leading-6 text-[rgba(245,237,220,0.75)]">
-                  A cinematic painting of the current scene and atmosphere.
-                </p>
-              </div>
-              <div className="rounded-2xl bg-[rgba(255,245,227,0.06)] p-4">
-                <p className="section-title">NPC Portraits</p>
-                <p className="m-0 text-sm leading-6 text-[rgba(245,237,220,0.75)]">
-                  On-demand portraits for important characters in the current story.
-                </p>
-              </div>
-            </div>
-          </section>
-        ) : null}
-
         {activeSection === "map" ? (
           <AtlasImageCard
             title="2D Map"
@@ -431,7 +438,7 @@ export function SceneAtlasClient() {
 
             <AtlasImageCard
               title="NPC Portrait"
-              subtitle={selectedNpc ? `${selectedNpc.name} • ${selectedNpc.role}` : "Choose someone"}
+              subtitle={selectedNpc ? `${selectedNpc.name} - ${selectedNpc.role}` : "Choose someone"}
               asset={selectedNpc ? npcAssets[selectedNpc.id] ?? null : null}
               loading={npcStatus.loading}
               message={
