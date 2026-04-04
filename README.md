@@ -17,7 +17,7 @@ This is a beginner-friendly Next.js starter for a solo fantasy RPG where an AI c
 - Save and resume with browser local storage
 - Optional Firebase cloud saves with anonymous sign-in
 - A fixed-height game layout with tabbed sidebar sections
-- Optional OpenAI narration with a fallback local narrator
+- Gemini narration with explicit error reporting when the API is unavailable
 
 ## What you need to install first
 
@@ -43,10 +43,11 @@ npm -v
 npm install
 ```
 
-3. Optional: add an OpenAI API key.
+3. Optional: add a Gemini API key.
 
 - Copy `.env.example` to `.env.local`
-- Put your key on the `OPENAI_API_KEY=` line
+- Put your key on the `GEMINI_API_KEY=` line
+- You can create a key in Google AI Studio
 
 4. Optional: add Firebase cloud save values.
 
@@ -90,8 +91,8 @@ npm run dev
 1. The player types an action.
 2. The API route rolls a d20 and applies simple rules.
 3. The app updates HP, quests, inventory, and world state.
-4. OpenAI narrates the result if a key exists.
-5. If no key exists, a local fallback narrator writes the scene.
+4. Gemini narrates the result when the API key is available.
+5. If the API call fails, the app shows the real error instead of generating fake story text.
 6. The updated game is saved in the browser.
 7. If Firebase is configured, the same save is synced to Firestore.
 

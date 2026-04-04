@@ -79,6 +79,28 @@ export type SaveGameData = {
   state: GameState;
 };
 
+export type DmTurnUpdate = {
+  narration: string;
+  outcome: string;
+  updatedLocation: string;
+  updatedScene: string;
+  updatedObjective: string;
+  summaryEntry: string;
+  closingPrompt: string;
+  npcUpdates: {
+    id: string;
+    disposition: NpcDisposition;
+    status: NpcStatus;
+    location: string;
+    notes: string;
+  }[];
+  questUpdates: {
+    id: string;
+    status: QuestStatus;
+    summary: string;
+  }[];
+};
+
 export type ResolvedTurn = {
   nextState: GameState;
   roll: number;

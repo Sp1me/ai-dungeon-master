@@ -4,7 +4,7 @@ const features = [
   "Free-form actions like “I search the wagon tracks” or “I attack the goblin.”",
   "Transparent d20 rolls with stat modifiers and visible fail states.",
   "Character sheet, inventory, quest log, and a lightweight world memory.",
-  "Works without an API key using a built-in narrator, then upgrades to OpenAI later.",
+  "Uses Gemini for live DM narration and surfaces setup errors clearly.",
 ];
 
 export default function HomePage() {
@@ -22,7 +22,7 @@ export default function HomePage() {
               </h1>
               <p className="max-w-2xl text-lg leading-8 text-[rgba(31,26,20,0.86)]">
                 This starter is organized for learning: one app, one game screen,
-                local save files first, and an OpenAI-powered narrator you can add
+                local save files first, and a Gemini-powered narrator you can add
                 when you are ready.
               </p>
             </div>
@@ -59,4 +59,3 @@ export default function HomePage() {
     </main>
   );
 }
-

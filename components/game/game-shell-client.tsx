@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { startTransition, useEffect, useMemo, useState, type FormEvent } from "react";
 import { createNewGame } from "@/lib/game/data";
+import { requestGeneratedArt } from "@/lib/game/art-client";
 import {
   clearCloudSave,
   clearGameSave,
@@ -102,17 +103,32 @@ function ChatPanel({
   );
 }
 
+function getTurnFailureMessage(payload: unknown) {
+  if (
+    typeof payload === "object" &&
+    payload !== null &&
+    "error" in payload &&
+    typeof payload.error === "string"
+  ) {
+    return payload.error;
+  }
+
+  return "The Gemini DM request failed before the turn could resolve.";
+}
+
 function SidebarContent({
   state,
   savedGame,
   cloudStatus,
   cloudMessage,
+  dmStatus,
   activeSection,
 }: {
   state: GameState;
   savedGame: SaveGameData | null;
   cloudStatus: CloudSaveStatus;
   cloudMessage: string;
+  dmStatus: string;
   activeSection: SidebarSection;
 }) {
   if (activeSection === "character") {
@@ -248,6 +264,10 @@ function SidebarContent({
         </p>
       </div>
       <div className="rounded-2xl border border-[rgba(255,245,227,0.12)] bg-[rgba(255,245,227,0.06)] p-3">
+        <p className="section-title">DM Status</p>
+        <p className="m-0 text-sm leading-6 text-[rgba(245,237,220,0.82)]">{dmStatus}</p>
+      </div>
+      <div className="rounded-2xl border border-[rgba(255,245,227,0.12)] bg-[rgba(255,245,227,0.06)] p-3">
         <p className="section-title">At A Glance</p>
         <div className="flex flex-wrap gap-2">
           <div className="stat-chip text-sm">Quests {state.quests.length}</div>
@@ -267,6 +287,7 @@ export function GameShellClient() {
   const [action, setAction] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [status, setStatus] = useState("");
+  const [dmStatus, setDmStatus] = useState("Waiting for your first move.");
   const [activeSection, setActiveSection] = useState<SidebarSection>("overview");
   const [cloudStatus, setCloudStatus] = useState<CloudSaveStatus>("disabled");
   const [cloudMessage, setCloudMessage] = useState("Cloud save is not configured yet.");
@@ -380,6 +401,59 @@ export function GameShellClient() {
     };
   }, [gameState]);
 
+  useEffect(() => {
+    if (!gameState) {
+      return;
+    }
+
+    const currentState = gameState;
+    let cancelled = false;
+
+    async function warmSceneAtlas() {
+      try {
+        await requestGeneratedArt({
+          kind: "location",
+          state: currentState,
+        });
+
+        if (cancelled) {
+          return;
+        }
+
+        await requestGeneratedArt({
+          kind: "map",
+          state: currentState,
+        });
+
+        if (cancelled) {
+          return;
+        }
+
+        const localNpc = currentState.world.npcs.find(
+          (npc) =>
+            npc.location === currentState.world.location &&
+            (npc.status === "active" || npc.status === "safe"),
+        );
+
+        if (localNpc) {
+          await requestGeneratedArt({
+            kind: "npc",
+            state: currentState,
+            npcId: localNpc.id,
+          });
+        }
+      } catch (error) {
+        console.error("Background art warmup failed.", error);
+      }
+    }
+
+    void warmSceneAtlas();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [gameState]);
+
   const canResume = useMemo(() => Boolean(savedGame && !gameState), [savedGame, gameState]);
 
   function startNewGame() {
@@ -387,6 +461,7 @@ export function GameShellClient() {
       const freshGame = createNewGame(playerName.trim() || "Aria", selectedClass);
       setGameState(freshGame);
       setStatus("A new journey begins.");
+      setDmStatus("Waiting for your first move.");
       setAction("");
       setActiveSection("overview");
     });
@@ -400,6 +475,7 @@ export function GameShellClient() {
     startTransition(() => {
       setGameState(savedGame.state);
       setStatus("Save loaded.");
+      setDmStatus("Waiting for your next move.");
     });
   }
 
@@ -416,6 +492,7 @@ export function GameShellClient() {
     setSavedGame(null);
     setGameState(null);
     setStatus("Save cleared.");
+    setDmStatus("Waiting for your first move.");
   }
 
   async function syncCloudNow() {
@@ -461,19 +538,30 @@ export function GameShellClient() {
       });
 
       if (!response.ok) {
-        throw new Error("Turn request failed.");
+        const payload = (await response.json().catch(() => null)) as unknown;
+        throw new Error(getTurnFailureMessage(payload));
       }
 
       const data = (await response.json()) as {
         nextState: GameState;
+        dmSource: "gemini";
+        dmError: string | null;
+        dmModel: string | null;
       };
 
       setAction("");
       setGameState(data.nextState);
       setStatus("Turn resolved.");
+      setDmStatus(`Live Gemini DM responded${data.dmModel ? ` with ${data.dmModel}` : "."}`);
     } catch (error) {
       console.error(error);
-      setStatus("That turn failed to load. Check your terminal for details.");
+      const message =
+        error instanceof Error
+          ? error.message
+          : "The Gemini DM request failed before the turn could resolve.";
+
+      setStatus(message);
+      setDmStatus(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -549,6 +637,9 @@ export function GameShellClient() {
                 <Link className="button-primary" href="/character">
                   View character sheet
                 </Link>
+                <Link className="button-secondary" href="/scene">
+                  Open scene atlas
+                </Link>
               </div>
             </div>
           </div>
@@ -561,9 +652,9 @@ export function GameShellClient() {
                 env values are added.
               </p>
               <p className="m-0">
-                If you add an <code>OPENAI_API_KEY</code>, the API route will ask
-                OpenAI to narrate the turn. Without a key, the project still works
-                with a built-in storyteller.
+                Add a <code>GEMINI_API_KEY</code> to let Gemini narrate the turn. If the
+                request fails, the app now shows the real error instead of inventing a fake
+                response.
               </p>
               <p className="m-0">{cloudMessage}</p>
               {savedGame ? (
@@ -615,6 +706,7 @@ export function GameShellClient() {
             savedGame={savedGame}
             cloudStatus={cloudStatus}
             cloudMessage={cloudMessage}
+            dmStatus={dmStatus}
             activeSection={activeSection}
           />
         </div>
@@ -623,6 +715,9 @@ export function GameShellClient() {
           <button className="button-secondary" type="button" onClick={syncCloudNow} disabled={!hasCloudSaveConfig()}>
             Sync cloud save
           </button>
+          <Link className="button-secondary" href="/scene">
+            Scene atlas
+          </Link>
           <button className="button-secondary" type="button" onClick={() => void clearSave()}>
             Start over
           </button>

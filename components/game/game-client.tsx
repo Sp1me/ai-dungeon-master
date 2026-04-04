@@ -325,6 +325,9 @@ export function GameClient() {
                 <Link className="button-primary" href="/character">
                   View character sheet
                 </Link>
+                <Link className="button-secondary" href="/scene">
+                  Open scene atlas
+                </Link>
               </div>
             </div>
           </div>
@@ -337,9 +340,8 @@ export function GameClient() {
                 and continue. Later, we can upgrade this to Firebase.
               </p>
               <p className="m-0">
-                If you add an <code>OPENAI_API_KEY</code>, the API route will ask
-                OpenAI to narrate the turn. Without a key, the project still works
-                with a built-in storyteller.
+                Add a <code>GEMINI_API_KEY</code> to let Gemini narrate the turn. If the request
+                fails, the app now shows the real error instead of inventing a fake response.
               </p>
               {savedGame ? (
                 <p className="m-0">
@@ -407,6 +409,9 @@ export function GameClient() {
             <button className="button-secondary" type="button" onClick={clearSave}>
               Start over
             </button>
+            <Link className="button-secondary" href="/scene">
+              Scene atlas
+            </Link>
             <Link className="button-secondary" href="/character">
               Character sheet
             </Link>
